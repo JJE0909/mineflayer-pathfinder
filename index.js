@@ -13,6 +13,7 @@ const nbt = require('prismarine-nbt')
 const interactableBlocks = require('./lib/interactable.json')
 
 function inject (bot) {
+  console.log('Running mineflayer-pathfinder modified by aes512')
   const waterType = bot.registry.blocksByName.water.id
   const ladderId = bot.registry.blocksByName.ladder.id
   const vineId = bot.registry.blocksByName.vine.id
@@ -160,6 +161,7 @@ function inject (bot) {
   }
 
   bot.pathfinder.stop = () => {
+    if (!bot.pathfinder.goal) return
     stopPathing = true
   }
 
@@ -329,19 +331,6 @@ function inject (bot) {
    */
   function fullStop () {
     bot.clearControlStates()
-
-    // Force horizontal velocity to 0 (otherwise inertia can move us too far)
-    // Kind of cheaty, but the server will not tell the difference
-    bot.entity.velocity.x = 0
-    bot.entity.velocity.z = 0
-
-    const blockX = Math.floor(bot.entity.position.x) + 0.5
-    const blockZ = Math.floor(bot.entity.position.z) + 0.5
-
-    // Make sure our bounding box don't collide with neighboring blocks
-    // otherwise recenter the position
-    if (Math.abs(bot.entity.position.x - blockX) > 0.2) { bot.entity.position.x = blockX }
-    if (Math.abs(bot.entity.position.z - blockZ) > 0.2) { bot.entity.position.z = blockZ }
   }
 
   function moveToEdge (refBlock, edge) {
@@ -397,7 +386,7 @@ function inject (bot) {
 
   bot.on('blockUpdate', (oldBlock, newBlock) => {
     if (!oldBlock || !newBlock) return
-    if (isPositionNearPath(oldBlock.position, path) && oldBlock.type !== newBlock.type) {
+    if (oldBlock.type !== newBlock.type && isPositionNearPath(oldBlock.position, path)) {
       resetPath('block_updated', false)
     }
   })
@@ -421,8 +410,7 @@ function inject (bot) {
     if (stateMovements && stateMovements.allowFreeMotion && stateGoal && stateGoal.entity) {
       const target = stateGoal.entity
       if (physics.canStraightLine([target.position])) {
-        bot.lookAt(target.position.offset(0, 1.6, 0))
-
+        bot.lookAt(target.position.offset(0, 1.62, 0))
         if (target.position.distanceSquared(bot.entity.position) > stateGoal.rangeSq) {
           bot.setControlState('forward', true)
         } else {
@@ -470,9 +458,6 @@ function inject (bot) {
           pathUpdated = true
         }
       }
-    }
-
-    if (path.length === 0) {
       return
     }
 
@@ -604,7 +589,7 @@ function inject (bot) {
       dz = nextPoint.z - p.z
     }
 
-    bot.look(Math.atan2(-dx, -dz), 0)
+    bot.look(Math.atan2(-dx, -dz), Math.random() > 0.5 ? -Math.random() * 0.03 : Math.random() * 0.03)
     bot.setControlState('forward', true)
     bot.setControlState('jump', false)
 
